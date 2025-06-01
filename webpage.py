@@ -5,20 +5,28 @@ import geopandas as gpd
 import folium
 import io
 
-crime_df = pd.read_csv("initialData/estat_crim_off_cat_en.csv")
-crime_df = crime_df[crime_df["unit"] == "Per hundred thousand inhabitants"]
-
-crime_df.drop(columns=["DATAFLOW"], inplace=True)
-
+# ======================= Incarcare date =======================
 st.markdown('<h1 class="custom-title">Crimes in Europe</h1>', unsafe_allow_html=True)
 
-st.header("Dataset Preview:")
+merged_df = pd.read_csv("result/merged_final.csv")
+crime_df = pd.read_csv("initialData/estat_crim_off_cat_en.csv")
+pris_df = pd.read_csv("initialData/estat_crim_pris_off_en.csv")
+
+st.header("Crimes Dataset Preview:")
 st.dataframe(crime_df.head())
 
+st.header("Prisoners Dataset Preview:")
+st.dataframe(pris_df.head())
+
+
+st.header("Final Dataset Preview:")
+st.dataframe(merged_df.head())
+
 st.header("JSON:")
-df_json = crime_df[:3].to_json(orient='records')
+df_json = merged_df[:3].to_json(orient='records')
 st.json(df_json)
 
+# ======================= Sidebar =======================
 selected_year = st.sidebar.slider("Select Year",
                                   int(crime_df["TIME_PERIOD"].min()),
                                   int(crime_df["TIME_PERIOD"].max()),
@@ -26,36 +34,35 @@ selected_year = st.sidebar.slider("Select Year",
 
 filtered_data = crime_df[crime_df["TIME_PERIOD"] == selected_year]
 
-# Define a fixed color mapping for crime types
+# ======================= Bar chart stacked pe tipuri de infractiuni =======================
 color_mapping = {
-    "Acts against computer systems": "#E57373",  # Red
-    "Bribery": "#FFB74D",  # Orange
-    "Attempted intentional homicide": "#4DB6AC",  # Teal
-    "Intentional homicide": "#1E88E5",  # Blue
-    "Kidnapping": "#81C784",  # Green
-    "Robbery": "#DCE775",  # Yellow-green
-    "Rape": "#9575CD",  # Purple
-    "Sexual assault": "#F06292",  # Pink
-    "Sexual violence": "#BA68C8",  # Violet
-    "Unlawful acts involving controlled drugs or precursors": "#8D6E63",  # Brown
-    "Burglary of private residential premises": "#FF8A65",  # Light Red-Orange
-    "Burglary": "#A1887F",  # Taupe
-    "Serious assault": "#64B5F6",  # Light Blue
-    "Theft": "#7986CB",  # Indigo
-    "Fraud": "#4DB6AC",  # Cyan
-    "Corruption": "#AED581",  # Light Green
-    "Theft of a motorized vehicle or parts thereof": "#FDD835",  # Bright Yellow
-    "Sexual exploitation": "#FF7043",  # Deep Orange
-    "Money laundering": "#BDBDBD",  # Grey
-    "Participation in an organized criminal group": "#90A4AE",  # Blue Grey
-    "Child pornography": "#FFD54F"  # Amber
+    "Acts against computer systems": "#E57373",
+    "Bribery": "#FFB74D",
+    "Attempted intentional homicide": "#4DB6AC",
+    "Intentional homicide": "#1E88E5",
+    "Kidnapping": "#81C784",
+    "Robbery": "#DCE775",
+    "Rape": "#9575CD",
+    "Sexual assault": "#F06292",
+    "Sexual violence": "#BA68C8",
+    "Unlawful acts involving controlled drugs or precursors": "#8D6E63",
+    "Burglary of private residential premises": "#FF8A65",
+    "Burglary": "#A1887F",
+    "Serious assault": "#64B5F6",
+    "Theft": "#7986CB",
+    "Fraud": "#4DB6AC",
+    "Corruption": "#AED581",
+    "Theft of a motorized vehicle or parts thereof": "#FDD835",
+    "Sexual exploitation": "#FF7043",
+    "Money laundering": "#BDBDBD",
+    "Participation in an organized criminal group": "#90A4AE",
+    "Child pornography": "#FFD54F"
 }
 
-# Stacked bar plot
 fig = px.bar(filtered_data,
              x="geo",
              y="OBS_VALUE",
-             color="iccs",  # Different crime types stacked
+             color="iccs",
              barmode="stack",
              labels={"geo": "Countries", "OBS_VALUE": "Offences per 1000 inhabitants"},
              title=f"Crime Data for European Countries {selected_year}",
@@ -64,44 +71,33 @@ fig = px.bar(filtered_data,
 fig.update_layout(xaxis_tickangle=-45,
                   legend_title="Types of Offences",
                   height=700,
-                  width=4000)
-
+                  width=1200)
 st.plotly_chart(fig)
 
-# Pie Chart - Crime Distribution by Type
+# ======================= Pie Chart =======================
 st.header("Crime Distribution in Europe")
 
 crime_pie = filtered_data.groupby("iccs")["OBS_VALUE"].sum().reset_index()
-
 fig_pie = px.pie(crime_pie,
                  names="iccs",
                  values="OBS_VALUE",
                  title=f"Crime Type Distribution in {selected_year}",
                  color="iccs",
                  color_discrete_map=color_mapping)
-
 st.plotly_chart(fig_pie)
 
-# Country map
-
-merged_df = pd.read_csv("merged.csv")
-
-# Filter the merged data by the selected year (merge with crime_df based on country and year)
+# ======================= Harta =======================
 merged_df = merged_df[merged_df["TIME_PERIOD"] == selected_year]
-
-# Load the shapefile for the countries
 shapefile_path = "external_source/gdp_map_countries/ne_110m_admin_0_countries.shp"
 world = gpd.read_file(shapefile_path)
-
-# Merge the geo-data with the crime data for the selected year
 merged_geo = world.merge(merged_df, how='left', left_on='NAME', right_on='geo')
 
-# Create the map
 m = folium.Map(location=[20, 0], zoom_start=2)
 
-# Function to choose color based on cases per 100k
 def color_cases(cases_per_100k):
-    if cases_per_100k < 1:
+    if pd.isna(cases_per_100k):
+        return 'gray'
+    elif cases_per_100k < 1:
         return 'green'
     elif cases_per_100k < 5:
         return 'yellow'
@@ -110,25 +106,64 @@ def color_cases(cases_per_100k):
     else:
         return 'red'
 
-# Add GeoJson data to the map
 for _, row in merged_geo.iterrows():
     geo = row['geometry']
-    cases_per_100k = row['No of cases']  # Cases per 100,000 for the selected year
+    cases_per_100k = row['No of cases']
     folium.GeoJson(
         geo,
-        style_function=lambda x: {
-            'fillColor': color_cases(cases_per_100k),
-            'color': 'black',  # Border color
-            'weight': 2,  # Border weight
+        style_function=lambda x, c=cases_per_100k: {
+            'fillColor': color_cases(c),
+            'color': 'black',
+            'weight': 2,
             'fillOpacity': 0.5
         },
         tooltip=folium.Tooltip(f"<b>{row['NAME']}</b><br>{cases_per_100k} cases per 100,000 inhabitants", sticky=True)
     ).add_to(m)
 
-# Save the map to an HTML file
 map_html = io.BytesIO()
-m.save(map_html, close_file=False)  # Save to BytesIO
+m.save(map_html, close_file=False)
 map_html.seek(0)
-
-# Display the map in Streamlit using st.components.v1.html
 st.components.v1.html(map_html.getvalue().decode(), height=600)
+
+# ======================= Criminalitate medie pe tara =======================
+merged_df2 = pd.read_csv("result/merged_final.csv")
+
+st.header("Rata medie a criminalității pe țară")
+crime_mean_by_country = merged_df2.groupby("geo")["No of cases"].mean().reset_index()
+crime_mean_by_country.columns = ["Country", "Average crime rate"]
+crime_mean_by_country = crime_mean_by_country.sort_values(by="Average crime rate", ascending=False)
+
+fig_bar = px.bar(crime_mean_by_country,
+                 x="Country",
+                 y="Average crime rate",
+                 title="Rata medie a criminalității pe țară (2008–2022)",
+                 labels={"Average crime rate": "Cazuri la 100.000 locuitori"},
+                 height=600)
+fig_bar.update_layout(xaxis_tickangle=-45)
+st.plotly_chart(fig_bar)
+
+# ======================= Raport F/M =======================
+st.header("Raport femei/bărbați în închisoare pe țară")
+gender_ratio_by_country = merged_df2.groupby("geo")["f_to_m_ratio"].mean().reset_index()
+gender_ratio_by_country = gender_ratio_by_country.sort_values(by="f_to_m_ratio", ascending=False)
+
+fig_ratio = px.bar(gender_ratio_by_country,
+                   x="geo",
+                   y="f_to_m_ratio",
+                   title="Raport mediu femei/bărbați în închisoare pe țară (2008–2022)",
+                   labels={"f_to_m_ratio": "Raport F/M mediu", "geo": "Țară"},
+                   color_discrete_sequence=["orchid"],
+                   height=600)
+fig_ratio.update_layout(xaxis_tickangle=-45)
+st.plotly_chart(fig_ratio)
+
+# ======================= Evolutie incarcerari in timp =======================
+st.header("Evoluția ratelor de încarcerare în timp")
+incarceration_trend = merged_df2.groupby("TIME_PERIOD")[["female_prisoners", "male_prisoners"]].mean().reset_index()
+fig_trend = px.line(incarceration_trend,
+                    x="TIME_PERIOD",
+                    y=["female_prisoners", "male_prisoners"],
+                    title="Evoluția medie anuală a încarcerării (per 100.000 locuitori)",
+                    labels={"value": "Rată", "TIME_PERIOD": "An", "variable": "Sex"},
+                    markers=True)
+st.plotly_chart(fig_trend)

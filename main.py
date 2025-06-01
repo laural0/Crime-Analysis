@@ -207,6 +207,32 @@ plt.grid(axis='y', linestyle='--', alpha=0.7)
 plt.tight_layout()
 plt.show()
 
+
+# Media ratei de prizonieri pe an
+
+total_prisoners_by_year = (
+    merged_df.groupby("TIME_PERIOD")[["female_prisoners", "male_prisoners"]]
+    .mean()
+    .reset_index()
+)
+
+print(total_prisoners_by_year)
+
+
+# Linie comparativa pentru medie
+
+plt.figure(figsize=(12, 6))
+plt.plot(total_prisoners_by_year["TIME_PERIOD"], total_prisoners_by_year["male_prisoners"], label="Bărbați", color="steelblue", linewidth=2)
+plt.plot(total_prisoners_by_year["TIME_PERIOD"], total_prisoners_by_year["female_prisoners"], label="Femei", color="orchid", linewidth=2)
+
+plt.title("Rata medie anuală de încarcerare în Europa (2008–2022)", fontsize=14)
+plt.xlabel("An")
+plt.ylabel("Rată medie per 100.000 locuitori")
+plt.legend()
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.tight_layout()
+plt.show()
+
 # Salvam datasetul
 
 merged_df.to_csv("result/merged_final.csv", index=False)
