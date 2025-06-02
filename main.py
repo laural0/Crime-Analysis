@@ -8,6 +8,8 @@ import numpy as np
 import math
 import geopandas as gpd
 from sklearn.preprocessing import LabelEncoder
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 # Curatare date
 
@@ -232,6 +234,7 @@ plt.legend()
 plt.grid(True, linestyle='--', alpha=0.6)
 plt.tight_layout()
 plt.show()
+
 
 # Salvam datasetul
 

@@ -4,6 +4,8 @@ import plotly.express as px
 import geopandas as gpd
 import folium
 import io
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 # ======================= Incarcare date =======================
 st.markdown('<h1 class="custom-title">Crimes in Europe</h1>', unsafe_allow_html=True)
@@ -167,3 +169,40 @@ fig_trend = px.line(incarceration_trend,
                     labels={"value": "Rată", "TIME_PERIOD": "An", "variable": "Sex"},
                     markers=True)
 st.plotly_chart(fig_trend)
+
+
+# ======================= Clusterizare KMeans =======================
+cluster_df = merged_df2[["geo", "No of cases", "male_prisoners", "female_prisoners"]].copy()
+cluster_df = cluster_df.groupby("geo").mean().reset_index()
+
+features = cluster_df[["No of cases", "male_prisoners", "female_prisoners"]]
+
+scaler = StandardScaler()
+scaled_features = scaler.fit_transform(features)
+
+kmeans = KMeans(n_clusters=3, random_state=42)
+cluster_df["cluster"] = kmeans.fit_predict(scaled_features)
+
+st.header("Clusterizare țări după criminalitate și încarcerare")
+
+fig = px.scatter_3d(
+    cluster_df,
+    x="No of cases",
+    y="male_prisoners",
+    z="female_prisoners",
+    color="cluster",
+    text="geo",
+    title="Gruparea țărilor în 3 clustere",
+    labels={
+        "No of cases": "Rata criminalității",
+        "male_prisoners": "Prizonieri bărbați",
+        "female_prisoners": "Prizonieri femei"
+    }
+)
+
+fig.update_traces(marker=dict(size=6))
+st.plotly_chart(fig)
+
+for c in sorted(cluster_df["cluster"].unique()):
+    countries = cluster_df[cluster_df["cluster"] == c]["geo"].tolist()
+    st.write(f"**Cluster {c}** ({len(countries)} țări):", ", ".join(countries))
